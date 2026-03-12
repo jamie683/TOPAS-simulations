@@ -8,7 +8,7 @@ import subprocess
 # USER SETTINGS
 # ============================================================
 TOPAS_EXE = "/home/jamie/shellScripts/topas"
-BASE_TXT = Path("A3_bone.txt")
+BASE_TXT = Path("A3_aluminium.txt")
 OUTDIR = Path("radial_runs")
 OUTDIR.mkdir(exist_ok=True)
 
@@ -27,7 +27,13 @@ def set_param(text: str, key: str, value: str) -> str:
     return new_text
 
 def run_topas(input_txt: Path) -> None:
-    subprocess.run([TOPAS_EXE, input_txt.name], check=True, cwd=input_txt.parent)
+    subprocess.run(
+        [TOPAS_EXE, input_txt.name],
+        check=True,
+        cwd=input_txt.parent,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
 
 def generate_and_run_radial_cases():
     for f in OUTDIR.glob("RadialProfile*.csv"):
@@ -56,7 +62,7 @@ def generate_and_run_radial_cases():
         for seed in SEEDS:
             txt = base_text
             txt = set_param(txt, "i:Ts/Seed", str(seed))
-            txt = set_param(txt, "s:Ge/Plate/Material", '"G4_BONE_COMPACT_ICRU"')
+            txt = set_param(txt, "s:Ge/Plate/Material", '"G4_Al"')
             txt = set_param(txt, "d:Ge/Plate/TransZ", f"{transz} cm")
             txt = set_param(txt, "s:Sc/Radial/OutputFile", f'"{RADIAL_SCORER_BASENAME}_ins_z{transz:+.2f}_s{seed}"')
 
@@ -312,23 +318,44 @@ def metric_summary(runs, metric_name):
     sem = std / np.sqrt(len(vals)) if len(vals) > 1 else 0.0
     return mean, std, sem
 
+def rebin_radial_profile(r_cm, e_r, factor=2):
+    """
+    Rebin radial profile by combining adjacent bins.
+    factor=2 means 2 old bins -> 1 new bin.
+
+    Returns:
+      r_new : new radial bin centres
+      e_new : rebinned energy per new radial bin
+    """
+    r_cm = np.asarray(r_cm, float)
+    e_r = np.asarray(e_r, float)
+
+    n = len(e_r) // factor
+    if n < 1:
+        raise ValueError("Rebin factor too large for profile length.")
+
+    r_new = r_cm[:n * factor].reshape(n, factor).mean(axis=1)
+    e_new = e_r[:n * factor].reshape(n, factor).sum(axis=1)
+
+    return r_new, e_new
 
 # ============================================================
 # PLOTTING
 # ============================================================
 def plot_baseline_profile(baseline_runs):
     r_cm, mean_e, std_e = mean_profile(baseline_runs)
+    r_cm, mean_e = rebin_radial_profile(r_cm, mean_e, factor=2)   # or 3, 4
     norm = np.sum(mean_e)
     y = mean_e / norm if norm > 0 else mean_e
-
     plt.figure()
     plt.plot(r_cm, y, marker="o", ms=3)
-    plt.xlabel("Radius (cm)")
-    plt.ylabel("Normalised energy deposit")
-    plt.title("Baseline radial energy-deposition profile (no inset plate)")
+    plt.xlabel("Radius (cm)", fontsize=14)
+    plt.xlim(0, 8)
+    plt.ylabel("Normalised energy deposit", fontsize=14)
+    plt.title("Baseline radial energy-deposition profile (no inset plate)", fontsize=14)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(OUTDIR / "baseline_radial_profile.png", dpi=200)
+    plt.savefig(OUTDIR / "baseline_radial_profile.png", dpi=300)
 
 
 def plot_selected_profiles(insert_grouped, baseline_runs):
@@ -336,6 +363,7 @@ def plot_selected_profiles(insert_grouped, baseline_runs):
 
     # baseline
     r0, e0, _ = mean_profile(baseline_runs)
+    r0, e0 = rebin_radial_profile(r0, e0, factor=2)
     y0 = e0 / np.sum(e0) if np.sum(e0) > 0 else e0
     plt.plot(r0, y0, label="No plate", linewidth=2)
 
@@ -343,17 +371,19 @@ def plot_selected_profiles(insert_grouped, baseline_runs):
         if z not in insert_grouped:
             continue
         r_cm, mean_e, _ = mean_profile(insert_grouped[z])
+        r_cm, mean_e = rebin_radial_profile(r_cm, mean_e, factor=2)
         y = mean_e / np.sum(mean_e) if np.sum(mean_e) > 0 else mean_e
         x_label = transz_to_depth_cm(z)
         plt.plot(r_cm, y, label=f"Insert depth = {x_label:.1f} cm")
 
-    plt.xlabel("Radius (cm)")
-    plt.ylabel("Normalised energy deposit")
-    plt.title("Radial profiles at 25 cm depth")
+    plt.xlabel("Radius (cm)", fontsize=14)
+    plt.xlim(0, 8)
+    plt.ylabel("Normalised energy deposit", fontsize=14)
+    plt.title("Radial profiles at 25 cm depth", fontsize=16)
     plt.grid(True, alpha=0.3)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(OUTDIR / "selected_radial_profiles.png", dpi=200)
+    plt.savefig(OUTDIR / "selected_radial_profiles.png", dpi=300)
 
 
 def plot_width_vs_position(insert_grouped, baseline_runs, metric_name="R80"):
@@ -375,13 +405,13 @@ def plot_width_vs_position(insert_grouped, baseline_runs, metric_name="R80"):
     plt.figure()
     plt.errorbar(x_depth, means, yerr=sems, fmt="o", capsize=4, elinewidth=1, ms=5, label=f"With inset plate")
     plt.axhline(float(baseline_mean), linestyle="--", label=f"No plate baseline ({metric_name} = {baseline_mean:.3f} cm)")
-    plt.xlabel("Insert depth in water (cm)")
-    plt.ylabel(f"{metric_name} beam width at 25 cm depth (cm)")
-    plt.title(f"{metric_name} vs insert position")
+    plt.xlabel("Insert depth in water (cm)", fontsize=14)
+    plt.ylabel(f"{metric_name} beam width at 25 cm depth (cm)", fontsize=14)
+    plt.title(f"{metric_name} vs insert position", fontsize=16)
     plt.grid(True, alpha=0.3)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(OUTDIR / f"{metric_name}_vs_insert_position.png", dpi=200)
+    plt.savefig(OUTDIR / f"{metric_name}_vs_insert_position.png", dpi=300)
 
 def plot_relative_broadening(insert_grouped, baseline_runs, metric_name="R80"):
     baseline_mean, baseline_std, baseline_sem = metric_summary(baseline_runs, metric_name)
@@ -417,13 +447,13 @@ def plot_relative_broadening(insert_grouped, baseline_runs, metric_name="R80"):
     )
 
     plt.axhline(0, linestyle="--")
-    plt.xlabel("Insert depth in water (cm)")
-    plt.ylabel(f"Δ{metric_name} beam width (cm)")
-    plt.title(f"Beam broadening relative to baseline ({metric_name})")
+    plt.xlabel("Insert depth in water (cm)", fontsize=14)
+    plt.ylabel(f"Δ{metric_name} beam width (cm)", fontsize=14)
+    plt.title(f"Beam broadening relative to baseline ({metric_name})", fontsize=16)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
 
-    plt.savefig(OUTDIR / f"delta_{metric_name}_vs_insert_position.png", dpi=200)
+    plt.savefig(OUTDIR / f"delta_{metric_name}_vs_insert_position.png", dpi=300)
 
 # ============================================================
 # OUTPUT TABLES
