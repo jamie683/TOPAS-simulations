@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 # USER SETTINGS
 # ============================================================
 TOPAS_EXE = "/home/jamie/shellScripts/topas"
-BASE_TXT = Path("A3_bone.txt")
+BASE_TXT = Path("A3_aluminium.txt")
 
 # ---------- Phase 1: lead thickness matching ----------
 MATCH_OUTDIR = Path("lead_match_runs")
@@ -44,7 +44,7 @@ WIDTH_METRIC = "R80"   # choose from: "R50", "R80", "R90", "RMS"
 # Geometry assumptions
 PHANTOM_CENTRE_CM = 20.0
 TRANSZ_SURFACE_CM = -18.0   # centre of 4 cm thick plate at the surface
-BONE_HL_CM = 2.0            # 4 cm thick bone insert from 3.5
+AL_HL_CM = 2.0            # 2 cm thick aluminium insert from 3.5
 Z_BIN_WIDTH_CM = 0.05       # depth-dose scorer bin width
 
 # ============================================================
@@ -58,14 +58,28 @@ def set_param(text: str, key: str, value: str) -> str:
         new_text = text.rstrip() + "\n" + f"{key} = {value}\n"
     return new_text
 
-
 def run_topas(input_txt: Path) -> None:
-    subprocess.run([TOPAS_EXE, input_txt.name], check=True, cwd=input_txt.parent)
-
+    subprocess.run(
+        [TOPAS_EXE, input_txt.name],
+        check=True,
+        cwd=input_txt.parent,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
 
 def safe_remove_glob(folder: Path, pattern: str):
     for f in folder.glob(pattern):
         f.unlink()
+
+def rebin_radial_profile(r_cm, e_r, factor=2):
+    r_cm = np.asarray(r_cm, float)
+    e_r = np.asarray(e_r, float)
+
+    n = len(e_r) // factor
+    r_new = r_cm[:n * factor].reshape(n, factor).mean(axis=1)
+    e_new = e_r[:n * factor].reshape(n, factor).sum(axis=1)
+
+    return r_new, e_new
 
 # ============================================================
 # DEPTH-DOSE / BRAGG PEAK HELPERS
@@ -124,16 +138,16 @@ def run_depth_case(material: str, hl_cm: float, seed: int, histories: int, out_b
     return bragg_peak_z_parabolic(z, dose)
 
 
-def compute_bone_reference():
+def compute_al_reference():
     peaks = []
     for seed in FINAL_SEEDS:
-        print(f"Running bone reference, seed {seed}")
+        print(f"Running aluminium reference, seed {seed}")
         zpk = run_depth_case(
-            material='"G4_BONE_COMPACT_ICRU"',
-            hl_cm=BONE_HL_CM,
+            material='"G4_Al"',
+            hl_cm=AL_HL_CM,
             seed=seed,
             histories=HIST_FINAL,
-            out_base=f"{DOSE_SCORER_BASENAME}_bone_ref_s{seed}"
+            out_base=f"{DOSE_SCORER_BASENAME}_al_ref_s{seed}"
         )
         peaks.append(zpk)
 
@@ -142,7 +156,6 @@ def compute_bone_reference():
     std = float(np.std(peaks, ddof=1)) if len(peaks) > 1 else 0.0
     sem = std / np.sqrt(len(peaks)) if len(peaks) > 1 else 0.0
     return peaks, (mean, std, sem)
-
 
 _lead_cache = {}
 
@@ -177,12 +190,12 @@ def lead_peak_mean(hl_cm: float, histories: int, seeds=None):
     return result
 
 
-def find_matched_lead_hl_bisection(z_bone_mean: float):
+def find_matched_lead_hl_bisection(z_al_mean: float):
     hl_low = HL_LOW0
     hl_high = HL_HIGH0
 
-    f_low = lead_peak_mean(hl_low, HIST_FAR)["mean"] - z_bone_mean
-    f_high = lead_peak_mean(hl_high, HIST_FAR)["mean"] - z_bone_mean
+    f_low = lead_peak_mean(hl_low, HIST_FAR)["mean"] - z_al_mean
+    f_high = lead_peak_mean(hl_high, HIST_FAR)["mean"] - z_al_mean
 
     expand_count = 0
     while not (f_low > 0 and f_high < 0):
@@ -205,8 +218,8 @@ def find_matched_lead_hl_bisection(z_bone_mean: float):
         elif f_low < 0 and f_high > 0:
             hl_low, hl_high = hl_high, hl_low
 
-        f_low = lead_peak_mean(hl_low, HIST_FAR)["mean"] - z_bone_mean
-        f_high = lead_peak_mean(hl_high, HIST_FAR)["mean"] - z_bone_mean
+        f_low = lead_peak_mean(hl_low, HIST_FAR)["mean"] - z_al_mean
+        f_high = lead_peak_mean(hl_high, HIST_FAR)["mean"] - z_al_mean
 
     print("\nBracket found:")
     print(f"  HL_low={hl_low:.4f} cm  -> z_peak - target = {f_low:+.4f} cm")
@@ -220,13 +233,13 @@ def find_matched_lead_hl_bisection(z_bone_mean: float):
 
         mid_result = lead_peak_mean(hl_mid, HIST_FAR)
         z_mid = mid_result["mean"]
-        delta = z_mid - z_bone_mean
+        delta = z_mid - z_al_mean
         hist_used = HIST_FAR
 
         if abs(delta) <= FAR_THRESH_CM:
             mid_result = lead_peak_mean(hl_mid, HIST_MID)
             z_mid = mid_result["mean"]
-            delta = z_mid - z_bone_mean
+            delta = z_mid - z_al_mean
             hist_used = HIST_MID
 
         history.append((i, hl_low, hl_high, hl_mid, hist_used, z_mid, delta))
@@ -255,13 +268,13 @@ def find_matched_lead_hl_bisection(z_bone_mean: float):
     return best_hl, final_result, history
 
 
-def save_lead_match_summary(bone_stats, best_hl, lead_final_result, history):
-    z_bone_mean, z_bone_std, z_bone_sem = bone_stats
+def save_lead_match_summary(al_stats, best_hl, lead_final_result, history):
+    z_al_mean, z_al_std, z_al_sem = al_stats
     lines = []
-    lines.append("case,hl_cm,peak_mean_cm,peak_std_cm,peak_sem_cm,delta_from_bone_cm")
-    lines.append(f"bone_reference,{BONE_HL_CM:.6f},{z_bone_mean:.6f},{z_bone_std:.6f},{z_bone_sem:.6f},0.000000")
+    lines.append("case,hl_cm,peak_mean_cm,peak_std_cm,peak_sem_cm,delta_from_al_cm")
+    lines.append(f"al_reference,{AL_HL_CM:.6f},{z_al_mean:.6f},{z_al_std:.6f},{z_al_sem:.6f},0.000000")
 
-    delta = lead_final_result["mean"] - z_bone_mean
+    delta = lead_final_result["mean"] - z_al_mean
     lines.append(
         f"lead_matched,{best_hl:.6f},{lead_final_result['mean']:.6f},"
         f"{lead_final_result['std']:.6f},{lead_final_result['sem']:.6f},{delta:.6f}"
@@ -276,22 +289,22 @@ def save_lead_match_summary(bone_stats, best_hl, lead_final_result, history):
     (MATCH_OUTDIR / "lead_bisection_history.csv").write_text("\n".join(hist_lines))
 
 
-def plot_lead_match(bone_stats, history):
-    z_bone_mean, _, _ = bone_stats
+def plot_lead_match(al_stats, history):
+    z_al_mean, _, _ = al_stats
 
     hls = np.array([r[3] for r in history], float)
     deltas = np.array([r[6] for r in history], float)
 
     plt.figure()
     plt.plot(hls, deltas, marker="o")
-    plt.axhline(0.0, linestyle="--", label=f"Bone reference = {z_bone_mean:.3f} cm")
-    plt.xlabel("Lead insert half-length, HL (cm)")
-    plt.ylabel("z_peak,Pb(HL) - z_peak,bone (cm)")
-    plt.title("Bisection convergence for lead thickness")
+    plt.axhline(0.0, linestyle="--", label=f"Al reference = {z_al_mean:.3f} cm")
+    plt.xlabel("Lead insert half-length, HL (cm)", fontsize=14)
+    plt.ylabel("z_peak,Pb(HL) - z_peak,Al (cm)", fontsize=14)
+    plt.title("Bisection convergence for lead thickness", fontsize=16)
     plt.grid(True, alpha=0.3)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(MATCH_OUTDIR / "lead_bragg_match.png", dpi=200)
+    plt.savefig(MATCH_OUTDIR / "lead_bragg_match.png", dpi=300)
 
 # ============================================================
 # RADIAL PROFILE HELPERS
@@ -400,8 +413,8 @@ def generate_and_run_lead_radial_cases(best_lead_hl_cm: float):
     base_text = BASE_TXT.read_text()
 
     cases = [
-        ("water", '"G4_WATER"', BONE_HL_CM),
-        ("bone", '"G4_BONE_COMPACT_ICRU"', BONE_HL_CM),
+        ("water", '"G4_WATER"', AL_HL_CM),
+        ("aluminium", '"G4_Al"', AL_HL_CM),
         ("lead", '"G4_Pb"', best_lead_hl_cm),
     ]
 
@@ -476,7 +489,7 @@ def save_radial_summary(case_runs):
     lines = []
     lines.append("case,metric,mean_cm,std_cm,sem_cm")
 
-    for case in ["water", "bone", "lead"]:
+    for case in ["water", "aluminium", "lead"]:
         runs = case_runs.get(case, [])
         if not runs:
             continue
@@ -491,21 +504,24 @@ def save_radial_summary(case_runs):
 def plot_radial_profiles(case_runs):
     plt.figure()
 
-    for case, label in [("water", "No plate"), ("bone", "Bone"), ("lead", "Lead")]:
+    for case, label in [("water", "No plate"), ("aluminium", "Aluminium"), ("lead", "Lead")]:
         runs = case_runs.get(case, [])
         if not runs:
             continue
         r_cm, mean_e, _ = mean_profile(runs)
+        r_cm, mean_e = rebin_radial_profile(r_cm, mean_e, factor=2)
+
         y = mean_e / np.sum(mean_e) if np.sum(mean_e) > 0 else mean_e
         plt.plot(r_cm, y, label=label, linewidth=2)
 
-    plt.xlabel("Radius (cm)")
-    plt.ylabel("Normalised energy deposit")
-    plt.title("Radial energy-deposition profiles at 25 cm depth")
+    plt.xlabel("Radius (cm)", fontsize=14)
+    plt.xlim(0,8)
+    plt.ylabel("Normalised energy deposit", fontsize=14)
+    plt.title("Radial energy-deposition profiles at 25 cm depth", fontsize=14)
     plt.grid(True, alpha=0.3)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(RADIAL_OUTDIR / "lead_material_radial_profiles.png", dpi=200)
+    plt.savefig(RADIAL_OUTDIR / "lead_material_radial_profiles.png", dpi=300)
 
 
 def plot_width_comparison(case_runs, metric_name="R80"):
@@ -513,7 +529,7 @@ def plot_width_comparison(case_runs, metric_name="R80"):
     means = []
     sems = []
 
-    for case in ["water", "bone", "lead"]:
+    for case in ["water", "aluminium", "lead"]:
         runs = case_runs.get(case, [])
         if not runs:
             continue
@@ -527,16 +543,16 @@ def plot_width_comparison(case_runs, metric_name="R80"):
     plt.figure()
     plt.errorbar(x, means, yerr=sems, fmt="o", capsize=4, elinewidth=1, ms=6)
     plt.xticks(x, cases)
-    plt.ylabel(f"{metric_name} beam width at 25 cm depth (cm)")
-    plt.title(f"{metric_name} comparison for water, bone, and matched lead")
+    plt.ylabel(f"{metric_name} beam width at 25 cm depth (cm)", fontsize=14)
+    plt.title(f"{metric_name} comparison for water, aluminium, and matched lead", fontsize=14)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(RADIAL_OUTDIR / f"lead_material_{metric_name}_comparison.png", dpi=200)
+    plt.savefig(RADIAL_OUTDIR / f"lead_material_{metric_name}_comparison.png", dpi=300)
 
 
 def plot_relative_broadening(case_runs, metric_name="R80"):
     water_runs = case_runs.get("water", [])
-    bone_runs = case_runs.get("bone", [])
+    aluminium_runs = case_runs.get("aluminium", [])
     lead_runs = case_runs.get("lead", [])
 
     water_mean, _, water_sem = metric_summary(water_runs, metric_name)
@@ -545,7 +561,7 @@ def plot_relative_broadening(case_runs, metric_name="R80"):
     deltas = []
     sems = []
 
-    for case_name, runs in [("Bone", bone_runs), ("Lead", lead_runs)]:
+    for case_name, runs in [("Aluminium", aluminium_runs), ("Lead", lead_runs)]:
         mean, _, sem = metric_summary(runs, metric_name)
         delta = mean - water_mean
         total_sem = np.sqrt(sem**2 + water_sem**2)
@@ -559,11 +575,11 @@ def plot_relative_broadening(case_runs, metric_name="R80"):
     plt.errorbar(x, deltas, yerr=sems, fmt="o", capsize=4, elinewidth=1, ms=6)
     plt.axhline(0, linestyle="--")
     plt.xticks(x, labels)
-    plt.ylabel(f"Δ{metric_name} beam width relative to no plate (cm)")
-    plt.title(f"Relative beam broadening for bone and matched lead")
+    plt.ylabel(f"Δ{metric_name} beam width relative to no plate (cm)", fontsize = 14)
+    plt.title(f"Relative beam broadening for aluminium and matched lead", fontsize=14)
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
-    plt.savefig(RADIAL_OUTDIR / f"lead_material_delta_{metric_name}.png", dpi=200)
+    plt.savefig(RADIAL_OUTDIR / f"lead_material_delta_{metric_name}.png", dpi=300)
 
 # ============================================================
 # MAIN
@@ -573,23 +589,23 @@ def main():
     safe_remove_glob(MATCH_OUTDIR, "*.txt")
 
     # -------------------------
-    # Phase 1: bone reference + lead bisection
+    # Phase 1: aluminium reference + lead bisection
     # -------------------------
-    bone_peaks, bone_stats = compute_bone_reference()
-    z_bone_mean, z_bone_std, z_bone_sem = bone_stats
+    aluminium_peaks, aluminium_stats = compute_al_reference()
+    z_al_mean, z_al_std, z_al_sem = aluminium_stats
 
-    best_hl, lead_final_result, history = find_matched_lead_hl_bisection(z_bone_mean)
+    best_hl, lead_final_result, history = find_matched_lead_hl_bisection(z_al_mean)
 
-    save_lead_match_summary(bone_stats, best_hl, lead_final_result, history)
-    plot_lead_match(bone_stats, history)
+    save_lead_match_summary(aluminium_stats, best_hl, lead_final_result, history)
+    plot_lead_match(aluminium_stats, history)
 
     print("\n=== LEAD THICKNESS MATCHING ===")
-    print(f"Bone reference peak: {z_bone_mean:.4f} ± {z_bone_sem:.4f} cm (SEM)")
+    print(f"Aluminium reference peak: {z_al_mean:.4f} ± {z_al_sem:.4f} cm (SEM)")
     print(f"Matched lead HL = {best_hl:.4f} cm")
     print(f"Matched lead physical thickness = {2 * best_hl:.4f} cm")
     print(
         f"Lead final peak: {lead_final_result['mean']:.4f} ± {lead_final_result['sem']:.4f} cm (SEM)  "
-        f"delta={lead_final_result['mean'] - z_bone_mean:+.4f} cm"
+        f"delta={lead_final_result['mean'] - z_al_mean:+.4f} cm"
     )
 
     # -------------------------
@@ -604,7 +620,7 @@ def main():
     plot_relative_broadening(case_runs, metric_name=WIDTH_METRIC)
 
     print("\n=== RADIAL COMPARISON ===")
-    for case in ["water", "bone", "lead"]:
+    for case in ["water", "aluminium", "lead"]:
         runs = case_runs.get(case, [])
         if not runs:
             continue
