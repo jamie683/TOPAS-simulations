@@ -1,0 +1,76 @@
+# ==========================
+# SECTION 2.3: DOSE SCORING FOR DVH GENERATION
+# ==========================
+# Irradiates the tumour with the verified 1 MeV photon beam from A2_2
+# and scores dose throughout the patient for DVH analysis in VICTORIA.
+# Run from project root: topas A2_3/dose_scoring.txt
+
+# ==========================
+# GEOMETRY
+# ==========================
+includeFile = ct_geometry.txt
+
+# ==========================
+# RUN CONTROL
+# ==========================
+# Adjust histories for acceptable statistics — start at 1e6, increase if DVHs are noisy
+i:So/Beam/NumberOfHistoriesInRun   = 1000000
+i:Ts/ShowHistoryCountAtInterval    = 100000
+i:Ts/NumberOfThreads               = 0
+
+# ==========================
+# GRAPHICS — OFF for production dose scoring
+# ==========================
+b:Ts/PauseBeforeQuit = "False"
+
+# ==========================
+# BEAM POSITION — copied from verified A2_2
+# ==========================
+# Posterior beam: source at +Y, RotX = -90 deg fires along -Y into patient.
+s:Ge/BeamPosition/Type   = "Group"
+s:Ge/BeamPosition/Parent = "World"
+d:Ge/BeamPosition/TransX = -47 mm
+d:Ge/BeamPosition/TransY = 200.0 mm
+d:Ge/BeamPosition/TransZ = 0.0 mm
+d:Ge/BeamPosition/RotX   = -90.0 deg
+d:Ge/BeamPosition/RotY   = 0.0 deg
+d:Ge/BeamPosition/RotZ   = 0.0 deg
+
+# ==========================
+# SOURCE — 1 MeV photon beam
+# ==========================
+s:So/Beam/Type                     = "Beam"
+s:So/Beam/Component                = "BeamPosition"
+s:So/Beam/BeamParticle             = "proton"
+d:So/Beam/BeamEnergy               = 1.0 MeV
+u:So/Beam/BeamEnergySpread         = 0.0
+
+# --- Beam spatial extent ---
+# Flat disc sized to cover the 3 cm diameter tumour.
+# Tune this radius if coverage is insufficient or too broad.
+s:So/Beam/BeamPositionDistribution = "Flat"
+s:So/Beam/BeamPositionCutoffShape  = "Ellipse"
+d:So/Beam/BeamPositionCutoffX      = 5.0 mm
+d:So/Beam/BeamPositionCutoffY      = 5.0 mm
+
+# --- Beam angular spread ---
+# Small divergence for a broad, roughly uniform field.
+# Adjust spread if tumour coverage needs tuning.
+s:So/Beam/BeamAngularDistribution  = "Gaussian"
+d:So/Beam/BeamAngularCutoffX       = 5.0 deg
+d:So/Beam/BeamAngularCutoffY       = 5.0 deg
+d:So/Beam/BeamAngularSpreadX       = 0.5 deg
+d:So/Beam/BeamAngularSpreadY       = 0.5 deg
+
+# ==========================
+# SCORING — dose to patient
+# ==========================
+# DoseToMedium on the Patient component.
+# The scorer inherits the CT voxel binning automatically —
+# no manual X/Y/Z bin counts are needed.
+s:Sc/PatientDose/Quantity                  = "DoseToMedium"
+s:Sc/PatientDose/Component                 = "Patient"
+s:Sc/PatientDose/OutputType                = "dicom"
+s:Sc/PatientDose/OutputFile                = "A2_3/output/dose_photon_1field"
+s:Sc/PatientDose/IfOutputFileAlreadyExists = "Overwrite"
+b:Sc/PatientDose/Active                    = "True"

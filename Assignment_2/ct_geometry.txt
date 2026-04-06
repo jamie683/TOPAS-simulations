@@ -1,0 +1,36 @@
+# ==========================
+# SHARED CT GEOMETRY
+# ==========================
+# This file defines the patient CT geometry used by sections 2.1 through 2.6.
+# Include it in each section's parameter file via: includeFile = ct_geometry.txt
+# Always run TOPAS from the project root (PHY4004_A2/) so relative paths resolve correctly.
+
+# ==========================
+# WORLD VOLUME
+# ==========================
+s:Ge/World/Type     = "TsBox"
+s:Ge/World/Material = "Vacuum"
+d:Ge/World/HLX      = 1.0 m
+d:Ge/World/HLY      = 1.0 m
+d:Ge/World/HLZ      = 1.0 m
+b:Ge/World/Invisible = "TRUE"
+
+# ==========================
+# SCHNEIDER HU-TO-MATERIAL CONVERSION
+# ==========================
+includeFile = HUtoMaterialSchneider.txt
+
+# ==========================
+# PATIENT CT IMPORT
+# ==========================
+s:Ge/Patient/Parent         = "World"
+s:Ge/Patient/Type           = "TsDicomPatient"
+s:Ge/Patient/DicomDirectory = "CTData"
+sv:Ge/Patient/DicomModalityTags = 1 "CT"
+
+d:Ge/Patient/TransX = 0.0 mm
+d:Ge/Patient/TransY = 0.0 mm
+d:Ge/Patient/TransZ = 0.0 mm
+d:Ge/Patient/RotX   = 0.0 deg
+d:Ge/Patient/RotY   = 0.0 deg
+d:Ge/Patient/RotZ   = 0.0 deg

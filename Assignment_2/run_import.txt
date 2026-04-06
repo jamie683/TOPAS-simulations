@@ -1,0 +1,94 @@
+# =====================================================
+# PHY4004 Assignment 2 – CT Phantom Import Example
+# =====================================================
+
+
+# =====================================================
+# RUN CONTROL
+# =====================================================
+
+b:Ts/PauseBeforeQuit = "True"
+i:Ts/ShowHistoryCountAtInterval = 10000
+b:Ts/UseQt = "False"
+
+# =====================================================
+# GRAPHICS SETTINGS
+# =====================================================
+
+s:Gr/ViewA/Type        = "OpenGL"
+i:Gr/ViewA/WindowSizeX = 900
+i:Gr/ViewA/WindowSizeY = 900
+
+# Viewing angles (adjust to view phantom properly)
+d:Gr/ViewA/Theta = 0 deg
+d:Gr/ViewA/Phi   = 90 deg
+
+# Force rendering of full voxel phantom
+i:Gr/ShowOnlyOutlineIfVoxelCountExceeds = 1000000
+
+
+# =====================================================
+# MATERIAL CONVERSION
+# =====================================================
+
+# Mapping from CT Hounsfield Units → TOPAS materials
+includeFile = HUtoMaterialSchneider.txt
+
+
+# =====================================================
+# WORLD GEOMETRY
+# =====================================================
+
+s:Ge/World/Material  = "Vacuum"
+
+d:Ge/World/HLX = 1.0 m
+d:Ge/World/HLY = 1.0 m
+d:Ge/World/HLZ = 1.0 m
+
+b:Ge/World/Invisible = "TRUE"
+
+
+# =====================================================
+# DICOM PATIENT IMPORT
+# =====================================================
+
+s:Ge/Patient/Parent = "World"
+s:Ge/Patient/Type   = "TsDicomPatient"
+
+# Directory containing CT slices and RTStruct file
+s:Ge/Patient/DicomDirectory = "CTData"
+
+# Identify dataset as CT
+sv:Ge/Patient/DicomModalityTags = 1 "CT"
+
+
+# =====================================================
+# PATIENT POSITION / ORIENTATION
+# =====================================================
+
+d:Ge/Patient/TransX = 0.0 cm
+d:Ge/Patient/TransY = 0.0 cm
+d:Ge/Patient/TransZ = 0.0 cm
+
+d:Ge/Patient/RotX = 0.0 deg
+d:Ge/Patient/RotY = 0.0 deg
+d:Ge/Patient/RotZ = 0.0 deg
+
+
+# =====================================================
+# OPTIONAL VISUALISATION SETTINGS
+# =====================================================
+
+# Show only a subset of CT slices for faster rendering
+# (-1 means the middle slice)
+
+iv:Ge/Patient/ShowSpecificSlicesZ = 1 -1
+
+
+# =====================================================
+# STRUCTURE VISUALISATION
+# =====================================================
+
+sv:Ge/Patient/ColorByRTStructNames  = 4 "GTVp" "Lung_L" "Heart" "SpinalCord"
+sv:Ge/Patient/ColorByRTStructColors = 4 "Red" "Green" "Blue" "Magenta"
+

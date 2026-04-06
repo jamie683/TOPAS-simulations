@@ -1,0 +1,39 @@
+# Example code for PHY4004 Assignment 2 Dicom import
+
+###### Run Parameters ######
+b:Ts/PauseBeforeQuit = "True"
+i:Ts/ShowHistoryCountAtInterval = 10000
+
+##### Graphics settings #####
+s:Gr/ViewA/Type        = "OpenGL"
+i:Gr/ViewA/WindowSizeX = 900
+i:Gr/ViewA/WindowSizeY = 900
+d:Gr/ViewA/Theta       = 0 deg  	# Can set viewing angle in terms of theta and phi to get a better view of phantom
+d:Gr/ViewA/Phi         = 90 deg
+i:Gr/ShowOnlyOutlineIfVoxelCountExceeds = 1000000 # By default, CT scans show just as an outline if there are too many voxels. Set this high to see our CT. 
+
+###### Geometry and Importing Phantom #####
+includeFile = HUtoMaterialSchneider.txt  # Includes file defining mapping from CT to Topas materials
+
+# World settings
+s:Ge/World/Material  = "Vacuum"
+d:Ge/World/HLX       = 1.0 m
+d:Ge/World/HLY       = 1.0 m
+d:Ge/World/HLZ       = 1.0 m
+b:Ge/World/Invisible = "TRUE"
+
+# Import patient - note the reference to the directory where 
+# CT is stored, and a tag to identify it as a CT dataset
+s:Ge/Patient/Parent             = "World"
+s:Ge/Patient/Type               = "TsDicomPatient"
+s:Ge/Patient/DicomDirectory     = "CTData"
+sv:Ge/Patient/DicomModalityTags = 1 "CT"
+
+d:Ge/Patient/TransX = 0.0 cm
+d:Ge/Patient/TransY = 0.0 cm
+d:Ge/Patient/TransZ = 0.0 cm
+d:Ge/Patient/RotX = 0.0 deg
+d:Ge/Patient/RotY = 0.0 deg
+d:Ge/Patient/RotZ = 0.0 deg
+
+iv:Ge/Patient/ShowSpecificSlicesZ = 1 -1	# Optional - only show specific slices for efficiency. -1 here shows only the middle slice.

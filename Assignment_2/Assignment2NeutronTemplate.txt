@@ -1,0 +1,42 @@
+########################
+# Graphics and interface
+s:Gr/ViewA/Type = "OpenGL"
+b:Ts/UseQT = "True"
+#b:Ts/PauseBeforeQuit="True"
+#sv:Gr/OnlyIncludeParticlesNamed = 1 "neutron"
+
+########################
+# Histories and threads
+i:So/Demo/NumberOfHistoriesInRun = 20
+i:Ts/ShowHistoryCountAtInterval = 10
+i:Ts/NumberOfThreads = -1
+
+########################
+# Beam settings
+s:So/Demo/Type = "Beam"
+s:So/Demo/Component = "BeamPosition"
+s:So/Demo/BeamParticle = "proton"
+d:So/Demo/BeamEnergy = 200. MeV
+u:So/Demo/BeamEnergySpread = 0.
+s:So/Demo/BeamAngularDistribution="Flat"
+d:So/Demo/BeamAngularCutoffX = 0.09967 rad 
+d:So/Demo/BeamAngularCutoffY = 0.09967 rad 
+s:So/Demo/BeamPositionDistribution="None"
+d:Ge/BeamPosition/TransZ = -1 * Ge/World/HLZ cm
+d:Ge/BeamPosition/RotX = 0. deg
+
+########################
+# Geometry setup
+s:Ge/World/Material = "Air"	
+d:Ge/World/HLX=100.0 cm
+d:Ge/World/HLY=100.0 cm
+d:Ge/World/HLZ=100.0 cm
+
+s:Ge/Phantom/Type="TsBox"	
+s:Ge/Phantom/Parent="World"
+s:Ge/Phantom/Material="G4_WATER"
+d:Ge/Phantom/HLX = 10. cm
+d:Ge/Phantom/HLY = Ge/Phantom/HLX cm
+d:Ge/Phantom/HLZ = Ge/Phantom/HLX cm
+d:Ge/Phantom/TransZ = Ge/Phantom/HLZ cm
+s:Ge/Phantom/Color="blue"

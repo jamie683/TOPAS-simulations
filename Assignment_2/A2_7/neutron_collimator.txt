@@ -1,0 +1,166 @@
+########################
+# Section 2.7: Neutron Production from Brass Collimator
+#
+# Geometry: 200 MeV diverging proton beam -> brass collimator -> water phantom
+# The collimator reduces the beam spot to ~8 cm diameter at the phantom.
+# Scorers quantify beam profile, total dose, neutron dose, and neutron spectrum.
+########################
+
+########################
+# Graphics and interface
+# Turn off GUI for production runs (100k histories).
+# Uncomment UseQT and ViewA lines for visual geometry checks with ~20 histories.
+s:Gr/ViewA/Type = "OpenGL"
+b:Ts/UseQT = "False"
+#b:Ts/PauseBeforeQuit = "True"
+
+########################
+# Histories and threads
+i:So/Demo/NumberOfHistoriesInRun = 100000
+i:Ts/ShowHistoryCountAtInterval = 10000
+i:Ts/NumberOfThreads = -1
+
+########################
+# Physics — need hadronic models for neutron production
+sv:Ph/Default/Modules = 6 "g4em-standard_opt4" "g4h-phy_QGSP_BIC_HP" "g4decay" "g4ion-binarycascade" "g4h-elastic_HP" "g4stopping"
+
+########################
+# Beam settings (unchanged from template)
+s:So/Demo/Type = "Beam"
+s:So/Demo/Component = "BeamPosition"
+s:So/Demo/BeamParticle = "proton"
+d:So/Demo/BeamEnergy = 200. MeV
+u:So/Demo/BeamEnergySpread = 0.
+s:So/Demo/BeamAngularDistribution = "Flat"
+d:So/Demo/BeamAngularCutoffX = 0.09967 rad
+d:So/Demo/BeamAngularCutoffY = 0.09967 rad
+s:So/Demo/BeamPositionDistribution = "None"
+d:Ge/BeamPosition/TransZ = -1 * Ge/World/HLZ cm
+d:Ge/BeamPosition/RotX = 0. deg
+
+########################
+# World volume
+s:Ge/World/Material = "Air"
+d:Ge/World/HLX = 100.0 cm
+d:Ge/World/HLY = 100.0 cm
+d:Ge/World/HLZ = 100.0 cm
+
+########################
+# Water phantom (unchanged from template)
+s:Ge/Phantom/Type = "TsBox"
+s:Ge/Phantom/Parent = "World"
+s:Ge/Phantom/Material = "G4_WATER"
+d:Ge/Phantom/HLX = 10. cm
+d:Ge/Phantom/HLY = Ge/Phantom/HLX cm
+d:Ge/Phantom/HLZ = Ge/Phantom/HLX cm
+d:Ge/Phantom/TransZ = Ge/Phantom/HLZ cm
+s:Ge/Phantom/Color = "blue"
+
+########################
+# Brass collimator
+# Hollow cylinder (annulus): beam passes through the central aperture.
+# Placed 50 cm upstream from phantom front face (Z=0), centred at Z=-50 cm.
+# Thickness: 5 cm (sufficient to stop 200 MeV protons in brass).
+#
+# Aperture sizing for ~8 cm beam diameter at phantom:
+#   Beam source at Z=-100 cm (point source). A ray passing the aperture
+#   edge at radius r_a at the collimator back face (Z=-47.5 cm) hits the
+#   phantom (Z=0) at radius r = r_a * 100/52.5.
+#   For 4 cm radius at phantom: r_a = 4 * 52.5/100 = 2.1 cm.
+s:Ge/Collimator/Type = "TsCylinder"
+s:Ge/Collimator/Parent = "World"
+s:Ge/Collimator/Material = "G4_BRASS"
+d:Ge/Collimator/RMin = 2.1 cm
+d:Ge/Collimator/RMax = 12.0 cm
+d:Ge/Collimator/HL = 2.5 cm
+d:Ge/Collimator/TransX = 0.0 cm
+d:Ge/Collimator/TransY = 0.0 cm
+d:Ge/Collimator/TransZ = -50.0 cm
+s:Ge/Collimator/Color = "yellow"
+
+########################
+# Thin scoring plane just in front of phantom (for beam profile + neutron PS)
+# 0.1 mm thick air slab; does not perturb the simulation.
+s:Ge/ScoringPlane/Type = "TsBox"
+s:Ge/ScoringPlane/Parent = "World"
+s:Ge/ScoringPlane/Material = "Air"
+d:Ge/ScoringPlane/HLX = 10.0 cm
+d:Ge/ScoringPlane/HLY = 10.0 cm
+d:Ge/ScoringPlane/HLZ = 0.005 cm
+d:Ge/ScoringPlane/TransX = 0.0 cm
+d:Ge/ScoringPlane/TransY = 0.0 cm
+d:Ge/ScoringPlane/TransZ = -0.1 cm
+s:Ge/ScoringPlane/Color = "white"
+
+########################
+# SCORER 1: Beam profile (fluence at phantom surface, XY-binned)
+# Confirms the collimator produces ~8 cm diameter beam spot.
+s:Sc/BeamProfile/Quantity = "Fluence"
+s:Sc/BeamProfile/Component = "ScoringPlane"
+s:Sc/BeamProfile/OutputType = "csv"
+s:Sc/BeamProfile/OutputFile = "output/beam_profile"
+i:Sc/BeamProfile/XBins = 200
+i:Sc/BeamProfile/YBins = 200
+i:Sc/BeamProfile/ZBins = 1
+s:Sc/BeamProfile/IfOutputFileAlreadyExists = "Overwrite"
+
+########################
+# SCORER 2: Total dose in phantom (depth profile, Z-binned)
+s:Sc/TotalDose/Quantity = "DoseToMedium"
+s:Sc/TotalDose/Component = "Phantom"
+s:Sc/TotalDose/OutputType = "csv"
+s:Sc/TotalDose/OutputFile = "output/total_dose"
+i:Sc/TotalDose/XBins = 1
+i:Sc/TotalDose/YBins = 1
+i:Sc/TotalDose/ZBins = 200
+s:Sc/TotalDose/IfOutputFileAlreadyExists = "Overwrite"
+
+########################
+# SCORER 3: Neutron dose in phantom (depth profile, Z-binned)
+# Uses OnlyIncludeIfIncidentParticlesNamed to score dose from neutrons
+# AND their secondary charged particles (as recommended by assignment).
+s:Sc/NeutronDose/Quantity = "DoseToMedium"
+s:Sc/NeutronDose/Component = "Phantom"
+s:Sc/NeutronDose/OutputType = "csv"
+s:Sc/NeutronDose/OutputFile = "output/neutron_dose"
+i:Sc/NeutronDose/XBins = 1
+i:Sc/NeutronDose/YBins = 1
+i:Sc/NeutronDose/ZBins = 200
+sv:Sc/NeutronDose/OnlyIncludeIfIncidentParticlesNamed = 1 "neutron"
+s:Sc/NeutronDose/IfOutputFileAlreadyExists = "Overwrite"
+
+########################
+# SCORER 4: Neutron phase space at phantom entrance
+# Records energy, position, and direction of every neutron crossing the
+# scoring plane surface.  Energies are histogrammed with log-spaced bins
+# in the Python analysis script, allowing flexible resolution across the
+# full thermal-to-fast range.
+s:Sc/NeutronPS/Quantity = "PhaseSpace"
+s:Sc/NeutronPS/Surface = "ScoringPlane/ZPlusSurface"
+s:Sc/NeutronPS/OutputType = "ASCII"
+s:Sc/NeutronPS/OutputFile = "output/neutron_phasespace"
+sv:Sc/NeutronPS/OnlyIncludeParticlesNamed = 1 "neutron"
+s:Sc/NeutronPS/IfOutputFileAlreadyExists = "Overwrite"
+
+########################
+# SCORER 5: Total dose (XY-binned, integrated over Z — for radial profile)
+s:Sc/TotalDoseXY/Quantity = "DoseToMedium"
+s:Sc/TotalDoseXY/Component = "Phantom"
+s:Sc/TotalDoseXY/OutputType = "csv"
+s:Sc/TotalDoseXY/OutputFile = "output/total_dose_xy"
+i:Sc/TotalDoseXY/XBins = 100
+i:Sc/TotalDoseXY/YBins = 100
+i:Sc/TotalDoseXY/ZBins = 1
+s:Sc/TotalDoseXY/IfOutputFileAlreadyExists = "Overwrite"
+
+########################
+# SCORER 6: Neutron dose (XY-binned, integrated over Z — for radial profile)
+s:Sc/NeutronDoseXY/Quantity = "DoseToMedium"
+s:Sc/NeutronDoseXY/Component = "Phantom"
+s:Sc/NeutronDoseXY/OutputType = "csv"
+s:Sc/NeutronDoseXY/OutputFile = "output/neutron_dose_xy"
+i:Sc/NeutronDoseXY/XBins = 100
+i:Sc/NeutronDoseXY/YBins = 100
+i:Sc/NeutronDoseXY/ZBins = 1
+sv:Sc/NeutronDoseXY/OnlyIncludeIfIncidentParticlesNamed = 1 "neutron"
+s:Sc/NeutronDoseXY/IfOutputFileAlreadyExists = "Overwrite"

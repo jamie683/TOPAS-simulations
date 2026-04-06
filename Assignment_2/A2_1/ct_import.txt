@@ -1,0 +1,44 @@
+# ==========================
+# SECTION 2.1: CT IMPORT AND STRUCTURE VISUALISATION
+# ==========================
+# Imports the XCAT CT phantom and highlights key radiotherapy structures.
+# Run from project root: topas A2_1/ct_import.txt
+
+# ==========================
+# GEOMETRY — shared CT patient
+# ==========================
+includeFile = ct_geometry.txt
+
+# ==========================
+# RUN CONTROL
+# ==========================
+b:Ts/PauseBeforeQuit = "True"
+i:Ts/ShowHistoryCountAtInterval = 10000
+i:Ts/NumberOfThreads = 0
+
+# ==========================
+# GRAPHICS
+# ==========================
+s:Gr/ViewA/Type        = "OpenGL"
+b:Ts/UseQT             = "False"
+i:Gr/ViewA/WindowSizeX = 900
+i:Gr/ViewA/WindowSizeY = 900
+d:Gr/ViewA/Theta       = 0.0 deg
+d:Gr/ViewA/Phi         = 90.0 deg
+
+# Show voxels even for large CT — override the default outline threshold
+i:Gr/ShowOnlyOutlineIfVoxelCountExceeds = 10000000
+
+# Only show the middle slice for efficiency
+iv:Ge/Patient/ShowSpecificSlicesZ = 1 -1
+
+# ==========================
+# RT STRUCTURE HIGHLIGHTING
+# ==========================
+# Colour key structures from the RTStruct file:
+#   GTVp      — Gross Tumour Volume (primary)
+#   Lung_L    — Left lung
+#   Heart     — Heart
+#   SpinalCord — Spinal cord
+sv:Ge/Patient/ColorByRTStructNames  = 4 "GTVp" "Lung_L" "Heart" "SpinalCord"
+sv:Ge/Patient/ColorByRTStructColors = 4 "red"  "green"  "blue"  "yellow"

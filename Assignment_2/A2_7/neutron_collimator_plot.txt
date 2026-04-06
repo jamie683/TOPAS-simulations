@@ -1,0 +1,78 @@
+########################
+# Geometry-only version for plotting (NO scorers)
+# Used to generate a clean geometry figure
+########################
+
+########################
+# Graphics and interface
+b:Ts/UseQT = "False"
+b:Ts/PauseBeforeQuit = "True"
+s:Gr/ViewA/Type = "VRML"
+
+########################
+# Histories and threads (minimal)
+i:So/Demo/NumberOfHistoriesInRun = 1
+i:Ts/ShowHistoryCountAtInterval = 1
+i:Ts/NumberOfThreads = 1
+
+########################
+# Physics (still required for beam definition)
+sv:Ph/Default/Modules = 6 "g4em-standard_opt4" "g4h-phy_QGSP_BIC_HP" "g4decay" "g4ion-binarycascade" "g4h-elastic_HP" "g4stopping"
+
+########################
+# Beam settings
+s:So/Demo/Type = "Beam"
+s:So/Demo/Component = "BeamPosition"
+s:So/Demo/BeamParticle = "proton"
+d:So/Demo/BeamEnergy = 200. MeV
+u:So/Demo/BeamEnergySpread = 0.
+s:So/Demo/BeamAngularDistribution = "Flat"
+d:So/Demo/BeamAngularCutoffX = 0.09967 rad
+d:So/Demo/BeamAngularCutoffY = 0.09967 rad
+s:So/Demo/BeamPositionDistribution = "None"
+d:Ge/BeamPosition/TransZ = -1 * Ge/World/HLZ cm
+d:Ge/BeamPosition/RotX = 0. deg
+
+########################
+# World volume
+s:Ge/World/Material = "Air"
+d:Ge/World/HLX = 100.0 cm
+d:Ge/World/HLY = 100.0 cm
+d:Ge/World/HLZ = 100.0 cm
+
+########################
+# Water phantom
+s:Ge/Phantom/Type = "TsBox"
+s:Ge/Phantom/Parent = "World"
+s:Ge/Phantom/Material = "G4_WATER"
+d:Ge/Phantom/HLX = 10. cm
+d:Ge/Phantom/HLY = Ge/Phantom/HLX cm
+d:Ge/Phantom/HLZ = Ge/Phantom/HLX cm
+d:Ge/Phantom/TransZ = Ge/Phantom/HLZ cm
+s:Ge/Phantom/Color = "blue"
+
+########################
+# Brass collimator
+s:Ge/Collimator/Type = "TsCylinder"
+s:Ge/Collimator/Parent = "World"
+s:Ge/Collimator/Material = "G4_BRASS"
+d:Ge/Collimator/RMin = 2.1 cm
+d:Ge/Collimator/RMax = 12.0 cm
+d:Ge/Collimator/HL = 2.5 cm
+d:Ge/Collimator/TransX = 0.0 cm
+d:Ge/Collimator/TransY = 0.0 cm
+d:Ge/Collimator/TransZ = -50.0 cm
+s:Ge/Collimator/Color = "yellow"
+
+########################
+# Thin scoring plane (for visual reference only)
+s:Ge/ScoringPlane/Type = "TsBox"
+s:Ge/ScoringPlane/Parent = "World"
+s:Ge/ScoringPlane/Material = "Air"
+d:Ge/ScoringPlane/HLX = 10.0 cm
+d:Ge/ScoringPlane/HLY = 10.0 cm
+d:Ge/ScoringPlane/HLZ = 0.005 cm
+d:Ge/ScoringPlane/TransX = 0.0 cm
+d:Ge/ScoringPlane/TransY = 0.0 cm
+d:Ge/ScoringPlane/TransZ = -0.1 cm
+s:Ge/ScoringPlane/Color = "white"
