@@ -1,0 +1,164 @@
+# ==========================
+# SECTION 2.2: BEAM ALIGNMENT — DIAGNOSTIC GEOMETRY VERIFICATION
+# ==========================
+# PURPOSE: This is a TEST file for determining the correct beam orientation.
+# The correct rotation is NOT yet known. Run each candidate below, inspect
+# the trajectories visually, and keep the one that sends beam through GTVp
+# from the anterior (front) of the patient.
+#
+# WORKFLOW:
+#   1. Uncomment ONE candidate rotation block at a time
+#   2. Run: topas A2_2/beam_alignment.txt
+#   3. Inspect the OpenGL visualisation — do trajectories pass through the
+#      red GTVp volume from the front of the patient?
+#   4. Once correct orientation is found, document it and propagate to
+#      later sections (A2_3 onward).
+#
+# ---- TUMOUR LOCATION ----
+# GTVp is 3 cm diameter, centred at X = -46 mm, Y = -46 mm from patient
+# geometry centre.
+#
+# ---- DEFAULT TOPAS BEAM ----
+# A TOPAS beam fires along the local -Z axis of its component.
+# We need to rotate BeamPosition so that local -Z maps onto the
+# direction pointing from anterior into the patient.
+# The CT axes are not guaranteed to follow any single convention
+# until visually confirmed — hence the candidate approach.
+
+# ==========================
+# GEOMETRY — shared CT patient
+# ==========================
+includeFile = ct_geometry.txt
+
+# ==========================
+# RUN CONTROL
+# ==========================
+b:Ts/PauseBeforeQuit            = "True"
+i:Ts/ShowHistoryCountAtInterval = 100
+i:Ts/NumberOfThreads            = 0
+
+# ==========================
+# GRAPHICS — trajectory visualisation
+# ==========================
+s:Gr/ViewA/Type                 = "OpenGL"
+b:Ts/UseQT                     = "False"
+i:Gr/ViewA/WindowSizeX          = 900
+i:Gr/ViewA/WindowSizeY          = 900
+d:Gr/ViewA/Theta                = 0.0 deg
+d:Gr/ViewA/Phi                  = 0.0 deg
+
+# Trajectory rendering
+b:Gr/ViewA/IncludeStepPoints    = "False"
+b:Gr/ViewA/ShowTrajectories     = "True"
+b:Gr/ViewA/IncludeTrajectories = "True"
+i:Gr/ViewA/MaxTrajectories      = 500
+
+# Show full phantom — do NOT restrict slices during alignment
+i:Gr/ShowOnlyOutlineIfVoxelCountExceeds = 10000000
+
+# Filter to photons only for a clean view
+#sv:Gr/ViewA/OnlyIncludeParticlesNamed = 1 "gamma"
+
+# Highlight tumour so we can see if the beam hits it
+sv:Ge/Patient/ColorByRTStructNames  = 1 "GTVp"
+sv:Ge/Patient/ColorByRTStructColors = 1 "red"
+iv:Ge/Patient/ShowSpecificSlicesZ = 1 -1
+
+# ==========================
+# SOURCE — 1 MeV photon pencil beam for alignment testing
+# ==========================
+# Pencil beam (no spatial spread, no angular spread) so trajectory
+# direction is unambiguous. Widen later once orientation is confirmed.
+
+s:So/Beam/Type                      = "Beam"
+s:So/Beam/Component                 = "BeamPosition"
+s:So/Beam/BeamParticle              = "gamma"
+d:So/Beam/BeamEnergy                = 1.0 MeV
+u:So/Beam/BeamEnergySpread          = 0.0
+i:So/Beam/NumberOfHistoriesInRun    = 2000
+
+s:So/Beam/BeamAngularDistribution   = "Parallel"
+s:So/Beam/BeamPositionDistribution = "None"
+s:So/Beam/BeamPositionCutoffShape  = "Ellipse"
+d:So/Beam/BeamPositionCutoffX      = 2.0 mm
+d:So/Beam/BeamPositionCutoffY      = 2.0 mm
+# ==========================
+# BEAM POSITION COMPONENT — CANDIDATE ROTATIONS
+# ==========================
+# Uncomment exactly ONE candidate block below and comment the others.
+# In each case the source is placed close to the patient (250 mm away)
+# and laterally shifted to the tumour X position.
+#
+# After running, check:
+#   - Do trajectories enter the patient from the front (anterior)?
+#   - Do they pass through the red GTVp region?
+#   - If beam goes the wrong way (e.g. posterior, lateral, axial),
+#     try the next candidate.
+
+# ----------------------------------------------------------
+# CANDIDATE A: RotX = +90 deg
+# Hypothesis: maps local -Z onto global -Y (anterior to posterior)
+# Source at +Y = anterior side
+# ----------------------------------------------------------
+#s:Ge/BeamPosition/Type      = "Group"
+#s:Ge/BeamPosition/Parent    = "World"
+#d:Ge/BeamPosition/TransX    = -46.0 mm
+#d:Ge/BeamPosition/TransY    = 200.0 mm
+#d:Ge/BeamPosition/TransZ    = 20.0 mm
+#d:Ge/BeamPosition/RotX      = 90.0 deg
+#d:Ge/BeamPosition/RotY      = 0.0 deg
+#d:Ge/BeamPosition/RotZ      = 0.0 deg
+
+
+# ----------------------------------------------------------
+# CANDIDATE B: RotX = -90 deg
+# Hypothesis: maps local -Z onto global +Y (posterior to anterior)
+# Source at -Y = posterior side
+# Try this if Candidate A fires the wrong way along Y.
+# ----------------------------------------------------------
+# s:Ge/BeamPosition/Type      = "Group"
+# s:Ge/BeamPosition/Parent    = "World"
+# d:Ge/BeamPosition/TransX    = -46.0 mm
+# d:Ge/BeamPosition/TransY    = -250.0 mm
+# d:Ge/BeamPosition/TransZ    = 0.0 mm
+# d:Ge/BeamPosition/RotX      = -90.0 deg
+# d:Ge/BeamPosition/RotY      = 0.0 deg
+# d:Ge/BeamPosition/RotZ      = 0.0 deg
+
+# ----------------------------------------------------------
+# CANDIDATE C: RotX = 0, RotY = 0 (default — beam along -Z)
+# Hypothesis: maybe the CT is oriented so -Z is anterior.
+# Source at +Z, shifted to tumour XY.
+# Try this if neither A nor B gives anterior entry.
+# ----------------------------------------------------------
+# s:Ge/BeamPosition/Type      = "Group"
+# s:Ge/BeamPosition/Parent    = "World"
+# d:Ge/BeamPosition/TransX    = -46.0 mm
+# d:Ge/BeamPosition/TransY    = -46.0 mm
+# d:Ge/BeamPosition/TransZ    = 250.0 mm
+# d:Ge/BeamPosition/RotX      = 0.0 deg
+# d:Ge/BeamPosition/RotY      = 0.0 deg
+# d:Ge/BeamPosition/RotZ      = 0.0 deg
+
+# ----------------------------------------------------------
+# CANDIDATE D: RotY = +90 deg
+# Hypothesis: maps local -Z onto global +X (left-right)
+# Source placed on +X side of patient
+# ----------------------------------------------------------
+#s:Ge/BeamPosition/Type      = "Group"
+#s:Ge/BeamPosition/Parent    = "World"
+#d:Ge/BeamPosition/TransX    = 250.0 mm
+#d:Ge/BeamPosition/TransY    = -46.0 mm
+#d:Ge/BeamPosition/TransZ    = 20.0 mm
+#d:Ge/BeamPosition/RotX      = 0.0 deg
+#d:Ge/BeamPosition/RotY      = 90.0 deg
+#d:Ge/BeamPosition/RotZ      = 0.0 deg
+
+s:Ge/BeamPosition/Type   = "Group"
+s:Ge/BeamPosition/Parent = "World"
+d:Ge/BeamPosition/TransX = -46.0 mm
+d:Ge/BeamPosition/TransY = 250.0 mm
+d:Ge/BeamPosition/TransZ = 0.0 mm
+d:Ge/BeamPosition/RotX   = 90.0 deg
+d:Ge/BeamPosition/RotY   = 0.0 deg
+d:Ge/BeamPosition/RotZ   = 0.0 deg
