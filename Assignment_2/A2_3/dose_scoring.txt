@@ -29,7 +29,7 @@ b:Ts/PauseBeforeQuit = "False"
 # Posterior beam: source at +Y, RotX = -90 deg fires along -Y into patient.
 s:Ge/BeamPosition/Type   = "Group"
 s:Ge/BeamPosition/Parent = "World"
-d:Ge/BeamPosition/TransX = -47 mm
+d:Ge/BeamPosition/TransX = -46 mm
 d:Ge/BeamPosition/TransY = 200.0 mm
 d:Ge/BeamPosition/TransZ = 0.0 mm
 d:Ge/BeamPosition/RotX   = -90.0 deg
@@ -46,12 +46,15 @@ d:So/Beam/BeamEnergy               = 1.0 MeV
 u:So/Beam/BeamEnergySpread         = 0.0
 
 # --- Beam spatial extent ---
-# Flat disc sized to cover the 3 cm diameter tumour.
-# Tune this radius if coverage is insufficient or too broad.
+# Flat disc matched to the GTV radius (15 mm). This is the degenerate limit
+# of the non-overlap-at-entry auto-sizing rule used for multi-field plans in
+# Section 2.4: with a single beam the min-gap test is vacuous, so the rule
+# reduces to the hard cap (GTV radius + 2 mm margin). Using 15 mm here gives
+# a fair single-field baseline consistent with the Section 2.4 upper bound.
 s:So/Beam/BeamPositionDistribution = "Flat"
 s:So/Beam/BeamPositionCutoffShape  = "Ellipse"
-d:So/Beam/BeamPositionCutoffX      = 5.0 mm
-d:So/Beam/BeamPositionCutoffY      = 5.0 mm
+d:So/Beam/BeamPositionCutoffX      = 15.0 mm
+d:So/Beam/BeamPositionCutoffY      = 15.0 mm
 
 # --- Beam angular spread ---
 # Small divergence for a broad, roughly uniform field.
