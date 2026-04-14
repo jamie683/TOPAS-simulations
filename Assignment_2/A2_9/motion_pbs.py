@@ -316,7 +316,8 @@ def plot_dvh_motion(curves, masks, geom, filepath):
         "fractionated": ("-.", 1.7),
         "rescanned M=10": (":", 1.9),
     }
-    # Global d_max for consistent axes
+    # Global d_max for consistent axes — use static (planned) dose max
+    plan_max = 0.0
     d_max = 0.0
     for label, dose_flat in curves.items():
         for sname, _, _ in struct_cfg:
@@ -324,7 +325,11 @@ def plot_dvh_motion(curves, masks, geom, filepath):
                 d = structure_dose_array(dose_flat, masks[sname], geom)
                 if d.size:
                     d_max = max(d_max, float(d.max()))
-    d_max = d_max * 1.05 if d_max > 0 else 1.0
+                    if label == "static":
+                        plan_max = max(plan_max, float(d.max()))
+    if plan_max <= 0:
+        plan_max = d_max if d_max > 0 else 1.0
+    d_max_pct = d_max / plan_max * 100.0 * 1.05
 
     fig, ax = plt.subplots(figsize=(9.5, 6))
     for label, dose_flat in curves.items():
@@ -332,13 +337,15 @@ def plot_dvh_motion(curves, masks, geom, filepath):
         for sname, color, display in struct_cfg:
             if sname not in masks or not masks[sname]:
                 continue
-            b, v = cumulative_dvh(dose_flat, masks[sname], geom, d_max=d_max)
-            ax.plot(b, v, color=color, linestyle=ls, linewidth=lw,
+            b, v = cumulative_dvh(dose_flat, masks[sname], geom,
+                                  d_max=d_max * 1.05)
+            b_pct = b / plan_max * 100.0
+            ax.plot(b_pct, v, color=color, linestyle=ls, linewidth=lw,
                     label=f"{display} ({label})")
-    ax.set_xlabel("Dose (a.u.)")
+    ax.set_xlabel("Dose (% of plan max)")
     ax.set_ylabel("Volume (%)")
-    ax.set_title("DVH — motion effects in PBS")
-    ax.set_xlim(0, d_max); ax.set_ylim(0, 102)
+    ax.set_title("DVH — Motion Effects in PBS")
+    ax.set_xlim(0, d_max_pct); ax.set_ylim(0, 102)
     ax.grid(alpha=0.3)
     ax.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=8,
               frameon=True)
